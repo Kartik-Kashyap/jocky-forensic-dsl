@@ -1,0 +1,253 @@
+{
+  "_meta": {
+    "project": "JOCKY — a domain-specific language for computer and network forensic analysis",
+    "generated_from": "deck/bench.py, deck/bench_baseline.py, tests/, evidence/, jocky/",
+    "measurement_host": "Windows 11, Python 3.11 (see _meta.platform_note)",
+    "platform_note": "All timings are wall-clock on a single laptop, mean of repeated runs. They are throughput ratios for comparison, not absolute speed claims. Report them as such.",
+    "honesty_note": "Every number here was produced by code in the repository and can be regenerated with `python deck/bench.py && python deck/bench_baseline.py`. Nothing is estimated or invented. The unfavourable numbers (interpreter overhead) are included deliberately and should appear in the paper.",
+    "units": {
+      "parse_ms": "milliseconds, lexing + parsing only",
+      "exec_ms": "milliseconds, interpreter execution only (parse excluded)",
+      "records_per_sec": "records processed per second during execution",
+      "peak_kb": "peak interpreter memory in kilobytes (tracemalloc)",
+      "overhead_x": "jocky_ms / python_ms — how many times slower than the equivalent hand-written Python"
+    },
+    "regenerate": [
+      "python deck/bench.py",
+      "python deck/bench_baseline.py",
+      "python -m unittest discover -s tests -t . -q"
+    ]
+  },
+
+  "table_scaling": {
+    "caption": "Table 1 — Interpreter scaling across synthetic evidence volumes. Cost is linear in record count and lex/parse cost is independent of it.",
+    "columns": ["events", "flows", "total_records", "parse_ms", "exec_ms", "records_per_sec", "peak_kb", "findings", "tables", "errors"],
+    "rows": [
+      [1000, 500, 1500, 2.5, 295.3, 5079, 1902.0, 3, 3, 0],
+      [5000, 2500, 7500, 2.6, 1018.5, 7363, 9323.4, 3, 3, 0],
+      [25000, 12500, 37500, 2.2, 6260.1, 5990, 46865.4, 3, 3, 0],
+      [100000, 50000, 150000, 3.1, 26524.2, 5655, 188009.0, 3, 3, 0]
+    ]
+  },
+
+  "table_overhead_vs_python": {
+    "caption": "Table 2 — Interpreter overhead against a hand-written Python implementation of the same investigation, plus isolated evidence-load time.",
+    "columns": ["events", "python_ms", "jocky_ms", "overhead_x", "evidence_load_ms"],
+    "rows": [
+      [1000, 12.3, 302.1, 24.5, 20.7],
+      [5000, 61.0, 1190.8, 19.5, 37.7],
+      [25000, 332.5, 6792.1, 20.4, 381.7],
+      [100000, 1245.9, 32781.3, 26.3, 863.1]
+    ]
+  },
+
+  "table_result_stability": {
+    "caption": "Table 3 — Result stability. The same investigation over the same evidence yields identical findings, record counts and evidence digests at every scale. Only the wall-clock duration varies between runs.",
+    "findings_at_every_scale": 3,
+    "tables_at_every_scale": 3,
+    "errors_at_every_scale": 0,
+    "note": "Two consecutive --json runs of the same script differ in exactly one field, duration_ms. Everything else, including findings, records and digests, is byte-identical."
+  },
+
+  "table_evidence_corpus": {
+    "caption": "Table 4 — The synthetic evidence corpus for case SIH-2026-014 on host FIN-WS-014.",
+    "columns": ["file", "bytes", "records", "fields"],
+    "rows": [
+      ["events.json", 14241, 45, 10],
+      ["fleet.json", 2048, 8, 10],
+      ["intel_hashes.txt", 732, 8, 1],
+      ["intel_ips.txt", 470, 12, 1],
+      ["netflow.csv", 3036, 39, 9],
+      ["processes.json", 5619, 19, 10]
+    ],
+    "totals": {"files": 6, "bytes": 26146, "records": 131}
+  },
+
+  "table_lex_parse": {
+    "caption": "Table 5 — Compiler front-end cost, which is independent of evidence volume.",
+    "script": "scripts/beacon_hunt.jky",
+    "lines": 93,
+    "tokens": 332,
+    "ast_nodes": 101,
+    "parse_ms_range": [2.2, 3.1],
+    "parse_ms_median": 2.5,
+    "note": "A 332-token, 101-node script parses in 2.2-3.1 ms across all four evidence scales, so front-end cost is independent of data volume. This is what makes a script reviewable before it touches evidence."
+  },
+
+  "table_codebase": {
+    "caption": "Table 6 — Implementation size, in lines. No third-party dependencies; Python 3.11+ standard library only.",
+    "columns": ["module", "role", "lines"],
+    "rows": [
+      ["jocky/lexer.py", "Tokenizer: positions, escapes, comments, regex literals", 233],
+      ["jocky/parser.py", "Recursive-descent parser producing a plain nested-dict AST", 367],
+      ["jocky/runtime.py", "Interpreter, pipeline stages, provenance tracking, reports", 616],
+      ["jocky/builtins.py", "14 builtin functions (hashing, entropy, IP classification, time)", 183],
+      ["jocky/cli.py", "run / compile / lint / env / serve subcommands", 414],
+      ["jocky/serve.py", "Loopback HTTP console API and design-constraint surface", 377],
+      ["jocky/__init__.py + __main__.py", "Package surface and entry point", 28],
+      ["console/index.html", "Operator console: 7 tabs, no build step", 1095],
+      ["tests/test_jocky.py", "Unit tests: lexer, parser, runtime, builtins, CLI", 396]
+    ],
+    "totals": {"python_package": 2218, "console": 1095, "tests": 396, "all": 3709},
+    "third_party_dependencies": 0
+  },
+
+  "table_language_surface": {
+    "caption": "Table 7 — The language surface.",
+    "statements": [
+      ["case \"ID\"", "Name the investigation"],
+      ["source N = ingest \"path\"", "Declare an evidence file (JSON, CSV or line-based)"],
+      ["let N = src |> where (cond) |> ...", "Derive a result set from a source"],
+      ["let N = src |> select (f1, f2)", "Project fields"],
+      ["let N = src |> sort by (f desc)", "Order records"],
+      ["let N = src |> group by (f)", "Bucket and count"],
+      ["let N = src |> distinct (f)", "Unique values with counts"],
+      ["let N = src |> limit (n)", "Truncate a result set"],
+      ["match src.field against \"intel.txt\" as N", "Correlate against a threat-intel list"],
+      ["timeline src on timestamp as \"label\"", "Build the case narrative"],
+      ["report \"Title\"", "Name the report"],
+      ["finding \"text\" severity high from N", "Raise a finding citing a result set"],
+      ["emit N as \"Label\"", "Include a result set in the report"]
+    ],
+    "statement_count": 13,
+    "pipeline_stages": ["where", "select", "sort by", "limit", "count", "group by", "distinct", "as"],
+    "builtin_functions": ["abs", "age_minutes", "entropy", "epoch", "int", "is_private_ip", "is_public_ip", "len", "lower", "md5", "now", "round", "sha256", "upper"],
+    "builtin_count": 14,
+    "operators": ["contains", "startswith", "endswith", "matches", "~ (regex)", "and", "or", "not", "in", "==", "!=", "<", ">", "<=", ">="],
+    "severity_levels": ["critical", "high", "medium", "low"]
+  },
+
+  "table_deliverables": {
+    "caption": "Table 8 — Submitted artefacts.",
+    "rows": [
+      ["jocky/", "The language: lexer, parser, interpreter, builtins, CLI, console server"],
+      ["console/index.html", "Operator console, 7 tabs, deep-linkable, no build step"],
+      ["scripts/*.jky", "Four reference investigations: beacon_hunt, triage, insider_usb, telemetry_audit"],
+      ["evidence/", "One coherent synthetic incident on host FIN-WS-014"],
+      ["tests/", "50 unit tests, all passing"],
+      ["deck/", "Submission deck and its generator (native PowerPoint shapes, tables, charts)"],
+      ["deck/bench.py, deck/bench_baseline.py", "The benchmark harness that produced Tables 1-3"]
+    ]
+  },
+
+  "figure_data": {
+    "figure_1_execution_time": {
+      "caption": "Figure 1 — Execution time against record count. Linear, slope ~0.177 ms/record.",
+      "type": "line or bar",
+      "x": [1500, 7500, 37500, 150000],
+      "x_label": "total records",
+      "y": [295.3, 1018.5, 6260.1, 26524.2],
+      "y_label": "execution time (ms)"
+    },
+    "figure_2_throughput": {
+      "caption": "Figure 2 — Throughput stays flat across three orders of magnitude, i.e. the interpreter has no superlinear behaviour at these scales.",
+      "type": "bar",
+      "x": [1500, 7500, 37500, 150000],
+      "x_label": "total records",
+      "y": [5079, 7363, 5990, 5655],
+      "y_label": "records per second"
+    },
+    "figure_3_memory": {
+      "caption": "Figure 3 — Peak interpreter memory against record count. Linear, ~1.25 KB per record.",
+      "type": "line",
+      "x": [1500, 7500, 37500, 150000],
+      "x_label": "total records",
+      "y": [1902.0, 9323.4, 46865.4, 188009.0],
+      "y_label": "peak memory (KB)"
+    },
+    "figure_4_overhead": {
+      "caption": "Figure 4 — Interpreter overhead against hand-written Python. This is the paper's honest cost, not a defect to bury.",
+      "type": "bar",
+      "x": [1500, 7500, 37500, 150000],
+      "x_label": "total records",
+      "y": [24.5, 19.5, 20.4, 26.3],
+      "y_label": "overhead (x times hand-written Python)"
+    },
+    "figure_5_parse_cost_flat": {
+      "caption": "Figure 5 — Lex and parse cost is flat across evidence volume, because it depends on script size, not data size.",
+      "type": "line",
+      "x": [1500, 7500, 37500, 150000],
+      "x_label": "total records",
+      "y": [2.5, 2.6, 2.2, 3.1],
+      "y_label": "lex + parse time (ms)"
+    }
+  },
+
+  "derived_statistics": {
+    "exec_ms_per_record": {
+      "1500": 0.197, "7500": 0.136, "37500": 0.167, "150000": 0.177,
+      "note": "Roughly constant, confirming linear scaling."
+    },
+    "peak_kb_per_record": {
+      "1500": 1.27, "7500": 1.24, "37500": 1.25, "150000": 1.25,
+      "note": "Remarkably constant at ~1.25 KB per record."
+    },
+    "overhead_mean_x": 22.7,
+    "overhead_range_x": [19.5, 26.3],
+    "throughput_range_records_per_sec": [5079, 7363],
+    "largest_scale_records": 150000,
+    "scales_tested": 4
+  },
+
+  "test_suite": {
+    "total": 50,
+    "passing": 50,
+    "runtime_seconds": 0.296,
+    "covers": ["lexer (positions, escapes, comments)", "parser (statements, pipelines, error positions)", "runtime (evaluation, provenance, findings)", "builtins", "CLI"],
+    "command": "python -m unittest discover -s tests -t . -q"
+  },
+
+  "console": {
+    "tabs": ["Investigate", "Compiler", "Timeline", "Evidence", "Fleet", "Language", "Compatibility"],
+    "tab_count": 7,
+    "binding": "127.0.0.1 by default",
+    "deep_linkable": true,
+    "build_step": "none — a single HTML file",
+    "run_key": "Ctrl+Enter"
+  },
+
+  "reproducibility_evidence": {
+    "syntax_error_demo": {
+      "input": "let broken = procs |> where (name === \"x\")",
+      "output": "✗ syntax error triage.jky:13:37\n  expected a value in this condition, found '='\n\n  13 │ let broken = procs |> where (name === \"x\")\n     │                                     ^",
+      "exit_code": 1,
+      "point": "Line, column, offending source line and a caret under the exact token."
+    },
+    "provenance_rejection_demo": {
+      "input": "finding \"Something I did not actually query\" severity high from ghost_data",
+      "output": "✗ finding cites unknown binding 'ghost_data'",
+      "exit_code": 1,
+      "point": "The central design claim. A finding that does not name the result set that raised it is refused by the language, not merely discouraged by convention."
+    },
+    "determinism_demo": {
+      "method": "Run the same script twice with --json and compare, excluding the wall-clock duration_ms field.",
+      "result": "IDENTICAL",
+      "fields_that_vary_between_runs": ["duration_ms"],
+      "point": "Findings, record counts, evidence digests and timeline are reproducible. Only the run's own timing varies, which is a measurement of the machine rather than part of the case."
+    }
+  },
+
+  "reference_investigations": {
+    "caption": "The four reference scripts shipped with the interpreter.",
+    "rows": [
+      ["scripts/beacon_hunt.jky", 93, "SIH-2026-014 — Beacon and C2 Hunt", 3, 6],
+      ["scripts/triage.jky", 50, "SIH-2026-014 — First Responder Triage", 2, 2],
+      ["scripts/insider_usb.jky", 59, "SIH-2026-014 — Removable Media and Exfiltration Review", 2, 4],
+      ["scripts/telemetry_audit.jky", 63, "SIH-2026-014 — Collector Compatibility and Telemetry Coverage", 2, 3]
+    ],
+    "columns": ["script", "lines", "report_title", "sources", "findings"]
+  },
+
+  "findings_in_beacon_hunt": {
+    "caption": "Findings raised by the reference investigation, with severity and the result set each cites. Use to illustrate the provenance property.",
+    "rows": [
+      ["Office document spawned a scripting engine", "high", "office_children"],
+      ["Unsigned binary executing from the user Temp directory", "high", "temp_execs"],
+      ["High-entropy encoded PowerShell command line", "high", "encoded_cmd"],
+      ["Security and System event logs cleared", "critical", "log_tamper"],
+      ["Host contacted a threat-intel IP address", "critical", "intel_contacts"],
+      ["Known-malicious file digest present on host", "critical", "intel_files"]
+    ],
+    "columns": ["finding", "severity", "cited_result_set"]
+  }
+}
