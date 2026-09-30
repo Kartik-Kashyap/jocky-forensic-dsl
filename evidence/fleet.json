@@ -1,0 +1,10 @@
+[
+  {"hostname": "FIN-WS-014", "site": "HQ / Finance", "os": "Windows 11 23H2", "ip": "10.14.7.23", "agent": "jocky-agent", "version": "0.1.0", "status": "alerting", "last_seen": "2026-09-21T12:24:07Z", "events_shipped": 18402, "tags": ["finance", "priority", "usb-enabled"]},
+  {"hostname": "FIN-WS-021", "site": "HQ / Finance", "os": "Windows 11 23H2", "ip": "10.14.7.31", "agent": "jocky-agent", "version": "0.1.0", "status": "healthy", "last_seen": "2026-09-21T12:24:02Z", "events_shipped": 9310, "tags": ["finance"]},
+  {"hostname": "DC-01", "site": "HQ / Core", "os": "Windows Server 2022", "ip": "10.14.2.9", "agent": "jocky-agent", "version": "0.1.0", "status": "healthy", "last_seen": "2026-09-21T12:24:09Z", "events_shipped": 420118, "tags": ["domain-controller", "critical"]},
+  {"hostname": "FS-01", "site": "HQ / Core", "os": "Windows Server 2022", "ip": "10.14.2.11", "agent": "jocky-agent", "version": "0.1.0", "status": "healthy", "last_seen": "2026-09-21T12:24:04Z", "events_shipped": 88342, "tags": ["file-server"]},
+  {"hostname": "edge-gw-01", "site": "HQ / Edge", "os": "Ubuntu 24.04 LTS", "ip": "10.14.1.5", "agent": "jocky-agent", "version": "0.1.0", "status": "healthy", "last_seen": "2026-09-21T12:24:11Z", "events_shipped": 1204880, "tags": ["network", "dns", "netflow"]},
+  {"hostname": "soc-jump-01", "site": "SOC", "os": "Ubuntu 24.04 LTS", "ip": "10.14.9.4", "agent": "jocky-agent", "version": "0.1.0", "status": "healthy", "last_seen": "2026-09-21T12:24:12Z", "events_shipped": 5120, "tags": ["analyst-workstation"]},
+  {"hostname": "HR-WS-007", "site": "Branch / HR", "os": "Windows 10 22H2", "ip": "10.22.4.17", "agent": "jocky-agent", "version": "0.0.9", "status": "stale", "last_seen": "2026-09-21T09:11:40Z", "events_shipped": 22440, "tags": ["hr"]},
+  {"hostname": "LAB-UBU-02", "site": "SOC / Lab", "os": "Ubuntu 24.04 LTS", "ip": "10.14.8.22", "agent": "jocky-agent", "version": "0.1.0", "status": "healthy", "last_seen": "2026-09-21T12:24:10Z", "events_shipped": 3310, "tags": ["analysis-lab", "sandbox"]}
+]

@@ -1,0 +1,63 @@
+# JOCKY — collector compatibility and telemetry coverage
+# Case:  SIH-2026-014
+#
+# Why this script exists: forensic tooling has a real deployment problem.
+# Unsigned, unfamiliar collectors get quarantined by endpoint protection,
+# and analysts lose the evidence they came for.
+#
+# JOCKY's answer is not to hide from the security stack. It is to work with
+# it: this script audits which hosts are reporting, which agents are stale,
+# and whether the fleet is on a consistent version — the checks an operator
+# needs before trusting a case timeline.
+#
+# Operational requirements this project commits to:
+#   * collectors read from documented sources only (ETW, WMI, USN journal,
+#     auditd/eBPF, netflow) — no kernel or security-product tampering
+#   * builds are reproducible and signed; hashes are published for vendor
+#     allowlisting rather than obfuscated to defeat it
+#   * the console listens on loopback by default; remote deployment is
+#     opt-in, over TLS, with pinned certificates
+#
+# Those constraints are what make the output defensible as evidence.
+
+case "SIH-2026-014"
+
+source fleet = ingest "evidence/fleet.json"
+source procs = ingest "evidence/processes.json"
+
+report "SIH-2026-014 — Collector Compatibility and Telemetry Coverage"
+
+let coverage = fleet
+    |> select (hostname, site, os, agent, version, status, events_shipped)
+    |> sort by (events_shipped desc)
+
+# Anything not reporting healthy needs an operator decision before its
+# timeline is used in a report.
+
+let stale_agents = fleet
+    |> where (status != "healthy")
+    |> select (hostname, site, os, version, status, last_seen)
+
+let agent_versions = fleet
+    |> group by (version)
+
+let platforms = fleet
+    |> group by (os)
+
+let tagged = fleet
+    |> where (tags contains "critical" or tags contains "priority")
+    |> select (hostname, site, status, tags)
+
+let by_site = fleet
+    |> group by (site)
+
+finding "Hosts with stale or alerting collector agents" severity medium from stale_agents
+finding "Mixed agent versions across the fleet" severity low from agent_versions
+finding "Priority-tagged assets reporting" severity low from tagged
+
+emit coverage       as "Fleet telemetry coverage"
+emit stale_agents   as "Collectors needing attention"
+emit agent_versions as "Agent versions in service"
+emit platforms      as "Operating systems"
+emit by_site        as "Hosts by site"
+emit tagged         as "Priority assets"

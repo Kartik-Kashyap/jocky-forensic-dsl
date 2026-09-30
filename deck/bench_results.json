@@ -1,0 +1,52 @@
+{
+  "scale": [
+    {
+      "events": 1000,
+      "flows": 500,
+      "total_records": 1500,
+      "parse_ms": 2.5,
+      "exec_ms": 295.3,
+      "records_per_sec": 5079,
+      "peak_kb": 1902.0,
+      "findings": 3,
+      "tables": 3,
+      "errors": []
+    },
+    {
+      "events": 5000,
+      "flows": 2500,
+      "total_records": 7500,
+      "parse_ms": 2.6,
+      "exec_ms": 1018.5,
+      "records_per_sec": 7363,
+      "peak_kb": 9323.4,
+      "findings": 3,
+      "tables": 3,
+      "errors": []
+    },
+    {
+      "events": 25000,
+      "flows": 12500,
+      "total_records": 37500,
+      "parse_ms": 2.2,
+      "exec_ms": 6260.1,
+      "records_per_sec": 5990,
+      "peak_kb": 46865.4,
+      "findings": 3,
+      "tables": 3,
+      "errors": []
+    },
+    {
+      "events": 100000,
+      "flows": 50000,
+      "total_records": 150000,
+      "parse_ms": 3.1,
+      "exec_ms": 26524.2,
+      "records_per_sec": 5655,
+      "peak_kb": 188009.0,
+      "findings": 3,
+      "tables": 3,
+      "errors": []
+    }
+  ]
+}

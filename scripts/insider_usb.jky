@@ -1,0 +1,59 @@
+# JOCKY — removable media and exfiltration review
+# Case:  SIH-2026-014
+#
+# Data left the workstation two ways on 2026-09-21: to a USB device, and in
+# bulk to an internal file share. This script reconstructs both paths.
+
+case "SIH-2026-014"
+
+source events = ingest "evidence/events.json"
+source flows  = ingest "evidence/netflow.csv"
+
+report "SIH-2026-014 — Removable Media and Exfiltration Review"
+
+let usb_events = events
+    |> where (event_id == 20001)
+    |> select (timestamp, host, user, device, path)
+
+# Spreadsheet activity, wherever it happened — local, network or removable.
+
+let spreadsheets = events
+    |> where (path ~ "(?i)\.xlsx$")
+    |> select (timestamp, host, user, image, path)
+    |> sort by (timestamp asc)
+
+let archive_writes = events
+    |> where (path contains "E:")
+    |> select (timestamp, user, image, path)
+    |> sort by (timestamp asc)
+
+let local_reads = events
+    |> where (path contains "C:\Finance\Exports")
+    |> select (timestamp, user, image, path)
+
+# Bulk transfers: anything over a megabyte leaving the host.
+
+let large_flows = flows
+    |> where (direction == "outbound")
+    |> where (bytes > 1000000)
+    |> select (timestamp, dst_ip, dst_port, bytes, packets)
+    |> sort by (bytes desc)
+
+let destinations = flows
+    |> where (direction == "outbound")
+    |> where (is_public_ip(dst_ip))
+    |> group by (dst_ip, dst_port)
+
+timeline events on timestamp as "removable media and file activity"
+
+finding "Removable media attached to a finance workstation" severity medium from usb_events
+finding "Spreadsheet files written to removable media" severity critical from archive_writes
+finding "Bulk transfers to internal file share" severity medium from large_flows
+finding "Source spreadsheets accessed before staging" severity low from local_reads
+
+emit usb_events     as "Removable media events"
+emit spreadsheets   as "Spreadsheet file activity"
+emit archive_writes as "Writes to removable media"
+emit local_reads    as "Reads from the finance export share"
+emit large_flows    as "Bulk transfers over 1 MB"
+emit destinations   as "External destinations"

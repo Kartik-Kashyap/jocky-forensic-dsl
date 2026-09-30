@@ -1,0 +1,1095 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JOCKY Console</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg:        #0a0e13;
+    --bg-2:      #0e141b;
+    --panel:     #111923;
+    --panel-2:   #151e29;
+    --line:      #1e2a38;
+    --line-soft: #18222e;
+    --text:      #c8d4e2;
+    --text-dim:  #7d90a6;
+    --text-mute: #55677d;
+    --accent:    #4da3ff;
+    --critical:  #ff5f6d;
+    --high:      #ff9a4d;
+    --medium:    #ffcc4d;
+    --low:       #46d5c0;
+    --ok:        #3ddc97;
+    --mono: "JetBrains Mono", "Cascadia Mono", "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    --sans: "Inter", -apple-system, "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input, select, textarea { font: inherit; color: inherit; }
+
+  /* ---------- shell ---------- */
+  .shell { display: flex; flex-direction: column; height: 100vh; }
+
+  header {
+    display: flex; align-items: center; gap: 18px;
+    padding: 0 16px; height: 52px; flex: 0 0 52px;
+    background: var(--bg-2);
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { display: flex; align-items: baseline; gap: 9px; }
+  .brand .mark {
+    font-family: var(--mono); font-weight: 700; font-size: 16px;
+    letter-spacing: .14em; color: var(--text);
+  }
+  .brand .mark span { color: var(--accent); }
+  .brand .ver { font-family: var(--mono); font-size: 10.5px; color: var(--text-mute); }
+  .tagline {
+    font-size: 11px; color: var(--text-mute);
+    padding-left: 18px; border-left: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  .header-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+
+  .case-chip {
+    font-family: var(--mono); font-size: 11px;
+    padding: 4px 9px; border: 1px solid var(--line);
+    border-radius: 4px; color: var(--text-dim); background: var(--panel);
+  }
+  .case-chip b { color: var(--accent); font-weight: 500; }
+
+  .btn {
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 5px; padding: 6px 13px; cursor: pointer;
+    color: var(--text-dim); font-size: 12px; font-weight: 500;
+    transition: background .12s, border-color .12s, color .12s;
+  }
+  .btn:hover { background: #1b2634; color: var(--text); border-color: #2a3a4d; }
+  .btn.primary {
+    background: #14406e; border-color: #1d5a99; color: #d6ecff;
+  }
+  .btn.primary:hover { background: #185089; border-color: #2470bd; }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .btn.running { animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .55; } }
+
+  /* ---------- tabs ---------- */
+  nav {
+    display: flex; gap: 2px; padding: 0 12px; flex: 0 0 auto;
+    background: var(--bg-2); border-bottom: 1px solid var(--line);
+    overflow-x: auto; scrollbar-width: none;
+  }
+  nav::-webkit-scrollbar { display: none; }
+  nav button {
+    background: none; border: 0; border-bottom: 2px solid transparent;
+    padding: 9px 13px; cursor: pointer; color: var(--text-mute);
+    font-size: 12px; font-weight: 500; white-space: nowrap;
+  }
+  nav button:hover { color: var(--text-dim); }
+  nav button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
+  nav .count {
+    font-family: var(--mono); font-size: 10px; color: var(--text-mute);
+    margin-left: 6px; padding: 1px 5px; background: var(--panel);
+    border-radius: 8px;
+  }
+  nav button[aria-selected="true"] .count { color: var(--accent); }
+
+  main { flex: 1; min-height: 0; overflow: hidden; }
+  .panel { display: none; height: 100%; overflow: auto; }
+  .panel.active { display: block; }
+  .panel.pad { padding: 16px; }
+
+  /* ---------- workbench ---------- */
+  .workbench {
+    display: grid; grid-template-columns: minmax(380px, 44%) 1fr;
+    height: 100%; min-height: 0;
+  }
+  @media (max-width: 980px) { .workbench { grid-template-columns: 1fr; } }
+
+  .pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+  .pane + .pane { border-left: 1px solid var(--line); }
+
+  .pane-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; flex: 0 0 auto;
+    border-bottom: 1px solid var(--line); background: var(--bg-2);
+  }
+  .pane-head .title {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .09em;
+    color: var(--text-mute); font-weight: 600;
+  }
+  .pane-head .spacer { margin-left: auto; }
+
+  select {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 5px; padding: 4px 8px; font-size: 12px;
+    color: var(--text-dim); cursor: pointer; max-width: 230px;
+  }
+
+  /* ---------- editor with highlight layer ---------- */
+  .editor-wrap { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+  .editor-wrap pre, .editor-wrap textarea {
+    position: absolute; inset: 0; margin: 0;
+    padding: 12px 14px 60px 14px;
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.62;
+    tab-size: 4; white-space: pre; overflow-wrap: normal;
+    border: 0;
+  }
+  .editor-wrap pre {
+    overflow: hidden; pointer-events: none; color: var(--text);
+  }
+  .editor-wrap textarea {
+    background: transparent; color: transparent; caret-color: var(--accent);
+    resize: none; outline: none; overflow: auto; z-index: 2;
+  }
+  .editor-wrap textarea::selection { background: #1d4b7a; }
+
+  /* token colours */
+  .t-kw   { color: #c792ea; }
+  .t-fn   { color: #82d2ff; }
+  .t-str  { color: #a5e075; }
+  .t-num  { color: #ffcb6b; }
+  .t-op   { color: #89a0b8; }
+  .t-pipe { color: var(--accent); font-weight: 600; }
+  .t-com  { color: #4a5c72; font-style: italic; }
+  .t-id   { color: #d7e3f0; }
+
+  .statusline {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 14px;
+    padding: 5px 12px; border-top: 1px solid var(--line);
+    background: var(--bg-2); font-family: var(--mono); font-size: 10.5px;
+    color: var(--text-mute);
+  }
+  .statusline .dot {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--ok);
+    display: inline-block; margin-right: 6px;
+  }
+  .statusline .dot.bad { background: var(--critical); }
+  .statusline .dot.busy { background: var(--medium); }
+
+  /* ---------- results ---------- */
+  .results { flex: 1; min-height: 0; overflow: auto; padding: 12px 14px 40px; }
+
+  .log { font-family: var(--mono); font-size: 11.5px; margin-bottom: 16px; }
+  .log div { padding: 1.5px 0; color: var(--text-dim); }
+  /* min-width, not width: "finding/critical" is the longest tag and a fixed
+     width let it run into the message text. */
+  .log .tag { display: inline-block; min-width: 118px; padding-right: 8px;
+              color: var(--text-mute); }
+  .log .k-case  .tag, .log .k-report .tag { color: #c792ea; }
+  .log .k-ingest .tag { color: #82d2ff; }
+  .log .k-let   .tag { color: var(--ok); }
+  .log .k-match .tag { color: var(--medium); }
+  .log .k-timeline .tag { color: #82d2ff; }
+  .log .k-finding .tag { color: var(--critical); }
+
+  .sev-row { margin-bottom: 5px; font-family: var(--mono); font-size: 12px; }
+  .sev {
+    display: inline-block; width: 68px; font-size: 9.5px; font-weight: 700;
+    letter-spacing: .07em; text-align: center; padding: 2px 0;
+    border-radius: 3px; margin-right: 9px; vertical-align: 1px;
+  }
+  .sev.critical { background: #3d1419; color: var(--critical); border: 1px solid #5c1e26; }
+  .sev.high     { background: #3a2313; color: var(--high);     border: 1px solid #5c3618; }
+  .sev.medium   { background: #3a3111; color: var(--medium);   border: 1px solid #5c4c15; }
+  .sev.low      { background: #11332f; color: var(--low);      border: 1px solid #175049; }
+  .sev .cite { color: var(--text-mute); font-size: 11px; }
+
+  .table-block { margin-bottom: 20px; }
+  .table-block h3 {
+    margin: 0 0 7px; font-size: 11.5px; font-weight: 600; color: var(--text);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .table-block h3 .n {
+    font-family: var(--mono); font-size: 10px; font-weight: 400;
+    color: var(--text-mute);
+  }
+  .scroll-x { overflow-x: auto; border: 1px solid var(--line-soft); border-radius: 5px; }
+  table { border-collapse: collapse; width: 100%; font-family: var(--mono); font-size: 11px; }
+  th, td {
+    text-align: left; padding: 5px 10px; white-space: nowrap;
+    border-bottom: 1px solid var(--line-soft); max-width: 340px;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  th {
+    color: var(--text-mute); font-weight: 600; font-size: 10px;
+    text-transform: uppercase; letter-spacing: .06em;
+    background: var(--panel); position: sticky; top: 0;
+  }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr:hover td { background: #131c27; }
+  td.num { color: var(--medium); text-align: right; }
+  td.hit { color: var(--critical); }
+
+  /* ---------- timeline ---------- */
+  .tl { position: relative; padding-left: 26px; }
+  .tl::before {
+    content: ""; position: absolute; left: 7px; top: 6px; bottom: 6px;
+    width: 1px; background: var(--line);
+  }
+  .tl-ev { position: relative; padding: 5px 0 5px 6px; }
+  .tl-ev::before {
+    content: ""; position: absolute; left: -22px; top: 11px;
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--bg); border: 1.5px solid var(--text-mute);
+  }
+  .tl-ev.sus::before { border-color: var(--critical); background: var(--critical); }
+  .tl-ev .ts { font-family: var(--mono); font-size: 11px; color: var(--text-mute); }
+  .tl-ev .sum {
+    font-family: var(--mono); font-size: 11.5px; color: var(--text-dim);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    max-width: 100%;
+  }
+  .tl-ev.sus .sum { color: var(--text); }
+
+  /* ---------- cards / grids ---------- */
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(285px, 1fr)); }
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 7px; padding: 13px 15px;
+  }
+  .card h4 {
+    margin: 0 0 8px; font-size: 10.5px; text-transform: uppercase;
+    letter-spacing: .08em; color: var(--text-mute); font-weight: 600;
+  }
+  .card .big {
+    font-family: var(--mono); font-size: 21px; color: var(--text);
+    font-weight: 500; line-height: 1.15;
+  }
+  .card .sub { font-size: 11px; color: var(--text-mute); font-family: var(--mono); }
+  .kv { display: flex; gap: 10px; padding: 2.5px 0; font-family: var(--mono); font-size: 11.5px; }
+  .kv .k { color: var(--text-mute); min-width: 96px; }
+  .kv .v { color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; }
+
+  .pill {
+    display: inline-block; font-family: var(--mono); font-size: 9.5px;
+    padding: 2px 7px; border-radius: 9px; letter-spacing: .04em;
+    border: 1px solid var(--line); color: var(--text-mute);
+  }
+  .pill.healthy  { color: var(--ok); border-color: #1c4a35; background: #0e2a1e; }
+  .pill.alerting { color: var(--critical); border-color: #5c1e26; background: #2c1014; }
+  .pill.stale    { color: var(--medium); border-color: #5c4c15; background: #2b240c; }
+
+  .host-icon {
+    width: 22px; height: 22px; border-radius: 4px; display: grid;
+    place-items: center; font-family: var(--mono); font-size: 10px;
+    background: var(--panel-2); border: 1px solid var(--line); color: var(--text-mute);
+  }
+
+  h2.section {
+    font-size: 12px; text-transform: uppercase; letter-spacing: .09em;
+    color: var(--text-mute); font-weight: 600; margin: 0 0 12px;
+  }
+  .note {
+    font-size: 12px; color: var(--text-dim); max-width: 760px;
+    margin: 0 0 16px; line-height: 1.65;
+  }
+  .note code {
+    font-family: var(--mono); font-size: 11.5px; color: var(--accent);
+    background: var(--panel); padding: 1px 5px; border-radius: 3px;
+  }
+
+  .empty {
+    padding: 40px 20px; text-align: center; color: var(--text-mute);
+    font-size: 12px;
+  }
+
+  .err {
+    background: #2c1014; border: 1px solid #5c1e26; border-radius: 6px;
+    padding: 11px 14px; margin-bottom: 14px; font-family: var(--mono); font-size: 11.5px;
+  }
+  .err .msg { color: var(--critical); }
+  .err .src { color: var(--text-dim); margin-top: 7px; }
+  .err .caret { color: var(--critical); }
+
+  .compat { max-width: 800px; }
+  .compat .card { margin-bottom: 10px; }
+  .compat .card p { margin: 0; font-size: 12px; color: var(--text-dim); line-height: 1.6; }
+  .compat .card h4 { color: var(--text); font-size: 12px; text-transform: none; letter-spacing: 0; }
+  .compat .card h4::before { content: "▪ "; color: var(--ok); }
+
+  .grammar-row {
+    display: grid; grid-template-columns: minmax(260px, 1fr) 1fr;
+    gap: 14px; padding: 7px 0; border-bottom: 1px solid var(--line-soft);
+    font-size: 11.5px;
+  }
+  .grammar-row:last-child { border-bottom: 0; }
+  .grammar-row code { font-family: var(--mono); color: #c792ea; }
+  .grammar-row span { color: var(--text-mute); }
+
+  .tok-grid {
+    display: flex; flex-wrap: wrap; gap: 3px; font-family: var(--mono);
+    font-size: 11px; align-content: flex-start;
+  }
+  .tok {
+    padding: 1.5px 5px; border-radius: 3px; background: var(--panel);
+    border: 1px solid var(--line-soft); white-space: pre;
+  }
+  .tok .k { font-size: 9px; color: var(--text-mute); margin-left: 4px; }
+
+  pre.ast {
+    font-family: var(--mono); font-size: 11.5px; line-height: 1.6;
+    color: var(--text-dim); margin: 0; white-space: pre; overflow-x: auto;
+  }
+  pre.ast b { color: #c792ea; font-weight: 500; }
+  pre.ast i { color: var(--text-mute); font-style: normal; }
+
+  .toast {
+    position: fixed; bottom: 18px; right: 18px; z-index: 50;
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 6px; padding: 9px 14px; font-size: 12px;
+    color: var(--text-dim); opacity: 0; transition: opacity .18s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+  .toast.bad { border-color: #5c1e26; color: var(--critical); }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <header>
+    <div class="brand">
+      <div class="mark">J<span>O</span>CKY</div>
+      <div class="ver" id="ver">v0.1.0</div>
+    </div>
+    <div class="tagline">forensic scripting language &amp; analysis console</div>
+    <div class="header-right">
+      <div class="case-chip">case <b id="caseId">—</b></div>
+      <button class="btn" id="btnCompile" title="Lex and parse without executing">Compile</button>
+      <button class="btn primary" id="btnRun">Run investigation</button>
+    </div>
+  </header>
+
+  <nav id="tabs">
+    <button data-tab="investigate" aria-selected="true">Investigate</button>
+    <button data-tab="compiler">Compiler <span class="count" id="cntTokens">0</span></button>
+    <button data-tab="timeline">Timeline <span class="count" id="cntEvents">0</span></button>
+    <button data-tab="evidence">Evidence <span class="count" id="cntEvidence">0</span></button>
+    <button data-tab="fleet">Fleet <span class="count" id="cntFleet">0</span></button>
+    <button data-tab="language">Language</button>
+    <button data-tab="compat">Compatibility</button>
+  </nav>
+
+  <main>
+    <!-- ============ INVESTIGATE ============ -->
+    <section class="panel active" id="panel-investigate">
+      <div class="workbench">
+        <div class="pane">
+          <div class="pane-head">
+            <span class="title">Script</span>
+            <select id="scriptPick"></select>
+            <span class="spacer"></span>
+            <span class="title" id="scriptHash" style="text-transform:none;letter-spacing:0"></span>
+          </div>
+          <div class="editor-wrap">
+            <pre id="hl" aria-hidden="true"></pre>
+            <textarea id="editor" spellcheck="false" autocomplete="off"></textarea>
+          </div>
+          <div class="statusline">
+            <span><span class="dot" id="statusDot"></span><span id="statusText">ready</span></span>
+            <span id="cursorPos">1:1</span>
+            <span class="spacer" style="margin-left:auto"></span>
+            <span id="runStats">—</span>
+          </div>
+        </div>
+
+        <div class="pane">
+          <div class="pane-head">
+            <span class="title">Findings &amp; results</span>
+            <span class="spacer"></span>
+            <span class="title" id="resultsMeta" style="text-transform:none;letter-spacing:0"></span>
+          </div>
+          <div class="results" id="results">
+            <div class="empty">Run the investigation to populate findings.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ COMPILER ============ -->
+    <section class="panel pad" id="panel-compiler">
+      <h2 class="section">Token stream</h2>
+      <div class="tok-grid" id="tokens"><div class="empty">No tokens yet.</div></div>
+      <h2 class="section" style="margin-top:26px">Abstract syntax tree</h2>
+      <pre class="ast" id="ast">No AST yet.</pre>
+    </section>
+
+    <!-- ============ TIMELINE ============ -->
+    <section class="panel pad" id="panel-timeline">
+      <h2 class="section" id="tlTitle">Case timeline</h2>
+      <div class="tl" id="timeline"><div class="empty">No timeline yet.</div></div>
+    </section>
+
+    <!-- ============ EVIDENCE ============ -->
+    <section class="panel pad" id="panel-evidence">
+      <h2 class="section">Evidence inventory &amp; integrity</h2>
+      <p class="note">
+        Files are read-only and identified by SHA-256 at acquisition time, so a
+        finding can always be traced back to the exact bytes it came from.
+      </p>
+      <div id="evidence"></div>
+    </section>
+
+    <!-- ============ FLEET ============ -->
+    <section class="panel pad" id="panel-fleet">
+      <h2 class="section">Managed hosts</h2>
+      <p class="note">
+        Collectors report to the console over TLS. Status reflects the last
+        check-in; a stale or alerting host is flagged before its timeline is
+        used in a report.
+      </p>
+      <div class="grid" id="fleet"></div>
+    </section>
+
+    <!-- ============ LANGUAGE ============ -->
+    <section class="panel pad" id="panel-language">
+      <h2 class="section">JOCKY reference</h2>
+      <div class="grid" style="grid-template-columns: 1fr 1fr; align-items:start">
+        <div class="card">
+          <h4>Statement forms</h4>
+          <div id="grammar"></div>
+        </div>
+        <div class="card">
+          <h4>Built-in functions</h4>
+          <div id="builtins"></div>
+        </div>
+      </div>
+      <h2 class="section" style="margin-top:26px">Runtime</h2>
+      <div class="card" style="max-width:640px"><div id="runtimeInfo"></div></div>
+    </section>
+
+    <!-- ============ COMPATIBILITY ============ -->
+    <section class="panel pad" id="panel-compat">
+      <div class="compat">
+        <h2 class="section">Coexisting with endpoint protection</h2>
+        <p class="note">
+          Forensic tooling has a real deployment problem: unsigned, unfamiliar
+          collectors get quarantined by endpoint protection, and the analyst
+          loses the evidence they came for. JOCKY's answer is not to hide from
+          the security stack — it is to work with it. These are the constraints
+          the runtime is built to, and they are what make its output
+          defensible as evidence.
+        </p>
+        <div id="constraints"></div>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+/* ------------------------------------------------------------------ state */
+const S = {
+  state: null,
+  scripts: [],
+  current: null,
+  result: null,
+  running: false,
+  dirty: false,
+};
+
+const $ = (id) => document.getElementById(id);
+
+/* --------------------------------------------------------- syntax colour */
+const KEYWORDS = new Set([
+  "let","case","source","ingest","as","emit","print","where","select","sort",
+  "by","asc","desc","limit","count","group","distinct","timeline","on",
+  "match","against","report","finding","severity","from","and","or","not",
+  "in","contains","startswith","endswith","matches","true","false","null",
+]);
+const FUNCS = new Set([
+  "lower","upper","len","int","abs","round","sha256","md5","entropy",
+  "is_private_ip","is_public_ip","now","epoch","age_minutes",
+]);
+
+const TOKEN_RE = new RegExp([
+  "(#[^\\n]*)",                                  // 1 comment
+  "(\"(?:\\\\.|[^\"\\\\])*\"|'(?:\\\\.|[^'\\\\])*')", // 2 string
+  "(\\b0x[0-9a-fA-F]+\\b|\\b\\d+(?:\\.\\d+)?\\b)",    // 3 number
+  "(\\|>)",                                      // 4 pipe
+  "([A-Za-z_][A-Za-z0-9_]*)",                    // 5 ident/keyword
+  "(==|!=|<=|>=|~|[=<>+\\-*/%])",                // 6 operator
+  "([(){}\\[\\],.:|])",                          // 7 punctuation
+].join("|"), "g");
+
+function esc(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function highlight(src) {
+  let out = "", last = 0;
+  TOKEN_RE.lastIndex = 0;
+  let m;
+  while ((m = TOKEN_RE.exec(src)) !== null) {
+    if (m.index > last) out += esc(src.slice(last, m.index));
+    const [tok, com, str, num, pipe, ident, op, punct] = m;
+    if (com !== undefined)       out += `<span class="t-com">${esc(tok)}</span>`;
+    else if (str !== undefined)  out += `<span class="t-str">${esc(tok)}</span>`;
+    else if (num !== undefined)  out += `<span class="t-num">${esc(tok)}</span>`;
+    else if (pipe !== undefined) out += `<span class="t-pipe">${esc(tok)}</span>`;
+    else if (ident !== undefined) {
+      if (KEYWORDS.has(ident))   out += `<span class="t-kw">${esc(tok)}</span>`;
+      else if (FUNCS.has(ident)) out += `<span class="t-fn">${esc(tok)}</span>`;
+      else                       out += `<span class="t-id">${esc(tok)}</span>`;
+    }
+    else if (op !== undefined)    out += `<span class="t-op">${esc(tok)}</span>`;
+    else                          out += `<span class="t-op">${esc(tok)}</span>`;
+    last = m.index + tok.length;
+  }
+  out += esc(src.slice(last));
+  return out + "\n";
+}
+
+/* ---------------------------------------------------------------- helpers */
+function toast(msg, bad) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.className = "toast show" + (bad ? " bad" : "");
+  clearTimeout(t._t);
+  t._t = setTimeout(() => { t.className = "toast"; }, 2600);
+}
+
+function setStatus(kind, text) {
+  $("statusDot").className = "dot" + (kind === "ok" ? "" : " " + kind);
+  $("statusText").textContent = text;
+}
+
+function fmtBytes(n) {
+  if (n < 1024) return n + " B";
+  if (n < 1048576) return (n / 1024).toFixed(1) + " KB";
+  return (n / 1048576).toFixed(1) + " MB";
+}
+
+function plural(n, s) { return n + " " + s + (n === 1 ? "" : "s"); }
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
+/* ------------------------------------------------------------ api client */
+async function api(path, body) {
+  const opts = body
+    ? { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body) }
+    : {};
+  const res = await fetch(path, opts);
+  if (!res.ok) {
+    let detail;
+    try { detail = (await res.json()).error; } catch (_) { detail = res.statusText; }
+    throw new Error(typeof detail === "string" ? detail
+                    : (detail && detail.message) || res.statusText);
+  }
+  return res.json();
+}
+
+/* ------------------------------------------------------------ editor glue */
+const editor = $("editor");
+const hl = $("hl");
+
+function paint() {
+  hl.innerHTML = highlight(editor.value);
+  hl.scrollTop = editor.scrollTop;
+  hl.scrollLeft = editor.scrollLeft;
+  const upto = editor.value.slice(0, editor.selectionStart);
+  const lines = upto.split("\n");
+  $("cursorPos").textContent = lines.length + ":" + (lines[lines.length - 1].length + 1);
+  S.dirty = true;
+}
+
+editor.addEventListener("input", paint);
+editor.addEventListener("scroll", () => {
+  hl.scrollTop = editor.scrollTop;
+  hl.scrollLeft = editor.scrollLeft;
+});
+editor.addEventListener("keyup", paint);
+editor.addEventListener("click", paint);
+editor.addEventListener("keydown", (e) => {
+  if (e.key === "Tab") {
+    e.preventDefault();
+    const s = editor.selectionStart, en = editor.selectionEnd;
+    editor.value = editor.value.slice(0, s) + "    " + editor.value.slice(en);
+    editor.selectionStart = editor.selectionEnd = s + 4;
+    paint();
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); run(); }
+});
+
+/* ------------------------------------------------------------------ tabs */
+function activateTab(name) {
+  const btn = $("tabs").querySelector(`button[data-tab="${name}"]`);
+  if (!btn) return;
+  for (const b of $("tabs").querySelectorAll("button")) {
+    b.setAttribute("aria-selected", b === btn ? "true" : "false");
+  }
+  for (const p of document.querySelectorAll(".panel")) {
+    p.classList.toggle("active", p.id === "panel-" + name);
+  }
+}
+
+$("tabs").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-tab]");
+  if (!btn) return;
+  activateTab(btn.dataset.tab);
+  history.replaceState(null, "", "#" + btn.dataset.tab);
+});
+
+/* -------------------------------------------------------------- rendering */
+function renderLog(lines) {
+  const box = el("div", "log");
+  for (const line of lines) {
+    const tagEnd = line.indexOf("]");
+    const tag = line.slice(1, tagEnd);
+    const rest = line.slice(tagEnd + 1).trim();
+    const kind = "k-" + tag.split("/")[0];
+    const row = el("div", kind);
+    row.appendChild(el("span", "tag", tag));
+    row.appendChild(document.createTextNode(rest));
+    box.appendChild(row);
+  }
+  return box;
+}
+
+function renderFindings(findings) {
+  const box = el("div");
+  box.style.margin = "14px 0 18px";
+  box.appendChild(el("h3", null, "Findings")).className = "section";
+  for (const f of findings) {
+    const row = el("div", "sev-row");
+    row.appendChild(el("span", "sev " + f.severity, f.severity.toUpperCase()));
+    row.appendChild(document.createTextNode(f.title + " "));
+    const cite = el("span", "cite", `(${plural(f.rows, "record")} via ${f.source})`);
+    row.appendChild(cite);
+    box.appendChild(row);
+  }
+  return box;
+}
+
+function renderTable(t) {
+  const block = el("div", "table-block");
+  const h = el("h3");
+  h.appendChild(document.createTextNode(t.label || t.name));
+  h.appendChild(el("span", "n", plural(t.total, "record")));
+  block.appendChild(h);
+
+  const wrapX = el("div", "scroll-x");
+  const table = el("table");
+  const thead = el("thead");
+  const hr = el("tr");
+  for (const c of t.columns) hr.appendChild(el("th", null, c));
+  thead.appendChild(hr);
+  table.appendChild(thead);
+
+  const tbody = el("tbody");
+  for (const row of t.rows) {
+    const tr = el("tr");
+    for (const c of t.columns) {
+      const v = row[c];
+      const td = el("td");
+      const text = v === null || v === undefined ? "" : String(v);
+      td.textContent = text;
+      if (typeof v === "number" || /^\d+$/.test(text)) td.className = "num";
+      if (text && /185\.234\.72\.19|45\.155\.205\.233|193\.42\.33\.18|47a648b1|e78312dc/.test(text)) {
+        td.className = "hit";
+      }
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  wrapX.appendChild(table);
+  block.appendChild(wrapX);
+  if (t.truncated) {
+    const m = el("div", "statusline", `showing first ${t.rows.length} of ${t.total}`);
+    block.appendChild(m);
+  }
+  return block;
+}
+
+function renderError(err) {
+  const box = el("div", "err");
+  box.appendChild(el("div", "msg", err.message));
+  if (err.source_line) {
+    const pre = el("div", "src");
+    pre.textContent = String(err.line).padStart(4, " ") + " │ " + err.source_line;
+    const caret = el("div", "caret");
+    caret.textContent = "     │ " + " ".repeat(Math.max(0, (err.col || 1) - 1)) + "^";
+    box.appendChild(pre);
+    box.appendChild(caret);
+  }
+  return box;
+}
+
+function renderResults(payload) {
+  const host = $("results");
+  host.innerHTML = "";
+
+  if (!payload.ok) {
+    host.appendChild(renderError(payload.error || { message: "unknown error" }));
+    $("resultsMeta").textContent = "compile failed";
+    return;
+  }
+
+  const art = payload.artifacts;
+  host.appendChild(renderLog(art.log));
+
+  if (art.errors && art.errors.length) {
+    for (const e of art.errors) host.appendChild(renderError({ message: e }));
+  }
+
+  if (art.findings && art.findings.length) {
+    host.appendChild(renderFindings(art.findings));
+  }
+
+  for (const t of art.tables) host.appendChild(renderTable(t));
+
+  $("resultsMeta").textContent =
+    `${plural(art.stats.records_read, "record")} · ${art.stats.duration_ms} ms`;
+}
+
+function renderCompiler(payload) {
+  const tokHost = $("tokens");
+  tokHost.innerHTML = "";
+  if (!payload.tokens) {
+    tokHost.appendChild(el("div", "empty", "No tokens."));
+  } else {
+    for (const t of payload.tokens) {
+      if (t.kind === "eof") continue;
+      const s = el("span", "tok");
+      s.appendChild(document.createTextNode(
+        t.value === null ? "∅" : String(t.value)));
+      s.appendChild(el("span", "k", t.kind));
+      tokHost.appendChild(s);
+    }
+  }
+  $("ast").innerHTML = payload.ast ? treeHTML(payload.ast) : "No AST.";
+}
+
+function treeHTML(node, indent) {
+  indent = indent || 0;
+  const pad = "  ".repeat(indent);
+  if (Array.isArray(node)) {
+    return node.map((n) => treeHTML(n, indent)).join("");
+  }
+  if (node && typeof node === "object") {
+    const head = node.node || "?";
+    const extras = Object.entries(node)
+      .filter(([k, v]) => !["node","body","stages","args","items","source","left","right","cond","value","expr"].includes(k)
+                          && !k.startsWith("_")
+                          && (v === null || typeof v !== "object"))
+      .map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(" ");
+    let s = `${pad}<b>${esc(head)}</b>${extras ? " <i>" + esc(extras) + "</i>" : ""}\n`;
+    for (const key of ["body","source","left","right","cond","value","expr"]) {
+      if (node[key] && typeof node[key] === "object") {
+        s += `${pad}  <i>${key}:</i>\n` + treeHTML(node[key], indent + 2);
+      }
+    }
+    for (const key of ["stages","args","items"]) {
+      if (Array.isArray(node[key])) {
+        s += `${pad}  <i>${key}:</i>\n`;
+        for (const item of node[key]) s += treeHTML(item, indent + 2);
+      }
+    }
+    return s;
+  }
+  return `${pad}${esc(String(node))}\n`;
+}
+
+function renderTimeline(art) {
+  const host = $("timeline");
+  const tl = art && art.timeline;
+  host.innerHTML = "";
+  if (!tl) {
+    host.appendChild(el("div", "empty", "This script declares no timeline."));
+    $("tlTitle").textContent = "Case timeline";
+    return;
+  }
+  $("tlTitle").textContent = `${tl.label} — ${plural(tl.count, "event")} on ${tl.field}`;
+  for (const e of tl.events) {
+    const sus = /svchost_update|185\.234\.72\.19|45\.155\.205\.233|193\.42\.33\.18|wevtutil|-enc|E:\\/i
+      .test(e.summary);
+    const row = el("div", "tl-ev" + (sus ? " sus" : ""));
+    row.appendChild(el("div", "ts", e.timestamp + (e.host ? "  " + e.host : "")));
+    row.appendChild(el("div", "sum", e.summary || "(no summary)"));
+    host.appendChild(row);
+  }
+}
+
+function renderEvidence(files) {
+  const host = $("evidence");
+  host.innerHTML = "";
+  for (const f of files) {
+    const card = el("div", "card");
+    card.style.marginBottom = "10px";
+    const h = el("h4", null, f.name + "  ·  " + fmtBytes(f.bytes) + "  ·  " + plural(f.records, "record"));
+    card.appendChild(h);
+    const kv = el("div");
+    for (const [k, v] of [["sha256", f.sha256], ["path", f.path], ["columns", (f.columns || []).join(", ")]]) {
+      const row = el("div", "kv");
+      row.appendChild(el("span", "k", k));
+      row.appendChild(el("span", "v", v || "—"));
+      kv.appendChild(row);
+    }
+    card.appendChild(kv);
+
+    if (f.preview && f.preview.length) {
+      const sx = el("div", "scroll-x");
+      sx.style.marginTop = "9px";
+      const t = el("table");
+      const cols = (f.columns || []).slice(0, 6);
+      const hr = el("tr");
+      for (const c of cols) hr.appendChild(el("th", null, c));
+      const thead = el("thead"); thead.appendChild(hr); t.appendChild(thead);
+      const tb = el("tbody");
+      for (const r of f.preview) {
+        const tr = el("tr");
+        for (const c of cols) tr.appendChild(el("td", null, r[c] === null || r[c] === undefined ? "" : String(r[c])));
+        tb.appendChild(tr);
+      }
+      t.appendChild(tb);
+      sx.appendChild(t);
+      card.appendChild(sx);
+    }
+    host.appendChild(card);
+  }
+}
+
+function renderFleet(hosts) {
+  const host = $("fleet");
+  host.innerHTML = "";
+  for (const h of hosts) {
+    const card = el("div", "card");
+    const top = el("div");
+    top.style.display = "flex";
+    top.style.alignItems = "center";
+    top.style.gap = "9px";
+    top.style.marginBottom = "9px";
+    top.appendChild(el("div", "host-icon", h.os.indexOf("Windows") === 0 ? "WIN" : "LNX"));
+    const nm = el("div");
+    nm.appendChild(el("div", null, h.hostname)).style.cssText = "font-family:var(--mono);font-size:12.5px";
+    nm.appendChild(el("div", "sub", h.site));
+    top.appendChild(nm);
+    const sp = el("span"); sp.style.marginLeft = "auto";
+    sp.appendChild(el("span", "pill " + h.status, h.status));
+    top.appendChild(sp);
+    card.appendChild(top);
+
+    for (const [k, v] of [
+      ["os", h.os], ["address", h.ip], ["agent", h.agent + " " + h.version],
+      ["last seen", h.last_seen], ["events", h.events_shipped.toLocaleString()],
+      ["tags", (h.tags || []).join(", ")],
+    ]) {
+      const row = el("div", "kv");
+      row.appendChild(el("span", "k", k));
+      row.appendChild(el("span", "v", v));
+      card.appendChild(row);
+    }
+    host.appendChild(card);
+  }
+}
+
+function renderLanguage(state) {
+  const g = $("grammar");
+  g.innerHTML = "";
+  for (const row of state.grammar) {
+    const r = el("div", "grammar-row");
+    const c = el("code", null, row.form);
+    r.appendChild(c);
+    r.appendChild(el("span", null, row.doc));
+    g.appendChild(r);
+  }
+  const b = $("builtins");
+  b.innerHTML = "";
+  for (const fn of state.builtins) {
+    const r = el("div", "kv");
+    r.appendChild(el("span", "k", fn.name + "()"));
+    r.appendChild(el("span", "v", fn.doc));
+    b.appendChild(r);
+  }
+  const rt = $("runtimeInfo");
+  rt.innerHTML = "";
+  const p = state.platform;
+  for (const [k, v] of [
+    ["language", state.lang + " " + state.version],
+    ["platform", `${p.system} ${p.release} (${p.machine})`],
+    ["python", p.python],
+    ["interpreter", p.executable],
+    ["project root", p.cwd],
+    ["scripts loaded", plural(state.scripts.length, "script")],
+    ["evidence files", plural(state.evidence.length, "file")],
+    ["built-ins", plural(state.builtins.length, "function")],
+  ]) {
+    const row = el("div", "kv");
+    row.appendChild(el("span", "k", k));
+    row.appendChild(el("span", "v", v));
+    rt.appendChild(row);
+  }
+}
+
+function renderConstraints(state) {
+  const host = $("constraints");
+  host.innerHTML = "";
+  for (const c of state.constraints) {
+    const card = el("div", "card");
+    card.appendChild(el("h4", null, c.title));
+    card.appendChild(el("p", null, c.body));
+    host.appendChild(card);
+  }
+}
+
+/* ------------------------------------------------------------- execution */
+async function run() {
+  if (S.running) return;
+  S.running = true;
+  $("btnRun").disabled = true;
+  $("btnRun").classList.add("running");
+  setStatus("busy", "running…");
+
+  try {
+    const payload = await api("/api/run", {
+      path: S.current ? S.current.path : null,
+      source: editor.value,
+    });
+    S.result = payload;
+    renderResults(payload);
+    renderCompiler(payload);
+    renderTimeline(payload.ok ? payload.artifacts : null);
+
+    if (payload.ok) {
+      const a = payload.artifacts;
+      $("caseId").textContent = a.case || "—";
+      $("cntTokens").textContent = payload.stats.tokens;
+      $("cntEvents").textContent = a.timeline ? a.timeline.count : 0;
+      $("runStats").textContent =
+        `${payload.stats.tokens} tokens · ${payload.stats.nodes} nodes · ${a.stats.duration_ms} ms`;
+      $("scriptHash").textContent = "sha256 " + payload.source_sha256.slice(0, 16) + "…";
+      setStatus("ok", `ok — ${plural(a.findings.length, "finding")}`);
+      toast(`${plural(a.findings.length, "finding")} raised · ${plural(a.stats.records_read, "record")} analysed`);
+    } else {
+      $("runStats").textContent = "compile failed";
+      setStatus("bad", "error");
+      toast("Compile failed — see the results pane", true);
+      $("tabs").querySelector('[data-tab="investigate"]').click();
+    }
+  } catch (err) {
+    setStatus("bad", "error");
+    toast(err.message, true);
+  } finally {
+    S.running = false;
+    $("btnRun").disabled = false;
+    $("btnRun").classList.remove("running");
+  }
+}
+
+async function compileOnly() {
+  try {
+    const payload = await api("/api/compile", {
+      path: S.current ? S.current.path : null,
+      source: editor.value,
+    });
+    if (payload.ok) {
+      renderCompiler(payload);
+      toast(`parsed — ${payload.stats.tokens} tokens, ${payload.stats.nodes} AST nodes`);
+      $("tabs").querySelector('[data-tab="compiler"]').click();
+    } else {
+      renderCompiler({ tokens: null, ast: null });
+      $("tokens").innerHTML = "";
+      $("tokens").appendChild(renderError(payload.error));
+      $("ast").textContent = "Parse failed.";
+      $("tabs").querySelector('[data-tab="compiler"]').click();
+      toast("Parse failed", true);
+    }
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+/* ------------------------------------------------------------------ boot */
+async function boot() {
+  let state;
+  try {
+    state = await api("/api/state");
+  } catch (err) {
+    document.body.innerHTML =
+      '<div style="padding:40px;font-family:monospace;color:#ff5f6d">' +
+      "Could not reach the JOCKY console API.<br><br>" +
+      "Start it with:  python -m jocky serve<br><br>" + err.message + "</div>";
+    return;
+  }
+  S.state = state;
+
+  $("ver").textContent = "v" + state.version;
+  $("caseId").textContent = "—";
+  $("cntEvidence").textContent = state.evidence.length;
+  $("cntFleet").textContent = state.fleet.length;
+
+  // script picker
+  const pick = $("scriptPick");
+  pick.innerHTML = "";
+  for (const s of state.scripts) {
+    const o = document.createElement("option");
+    o.value = s.path;
+    o.textContent = s.name;
+    pick.appendChild(o);
+  }
+  pick.addEventListener("change", () => {
+    const s = S.scripts.find((x) => x.path === pick.value);
+    if (!s) return;
+    S.current = s;
+    editor.value = s.source;
+    paint();
+    setStatus("ok", "loaded");
+    run();
+  });
+
+  S.scripts = state.scripts;
+  if (state.scripts.length) {
+    S.current = state.scripts[0];
+    editor.value = S.current.source;
+    paint();
+  }
+
+  renderEvidence(state.evidence);
+  renderFleet(state.fleet);
+  renderLanguage(state);
+  renderConstraints(state);
+
+  $("btnRun").addEventListener("click", run);
+  $("btnCompile").addEventListener("click", compileOnly);
+
+  // Prefer the beacon-hunt script as the opening demo.
+  const preferred = state.scripts.find((s) => s.name === "beacon_hunt.jky");
+  if (preferred) {
+    S.current = preferred;
+    pick.value = preferred.path;
+    editor.value = preferred.source;
+    paint();
+  }
+
+  setStatus("ok", "ready");
+  run();
+
+  // Deep link: #compiler, #timeline, #evidence, #fleet, #language, #compat
+  const hash = (location.hash || "").replace("#", "");
+  if (hash) activateTab(hash);
+}
+
+boot();
+</script>
+</body>
+</html>

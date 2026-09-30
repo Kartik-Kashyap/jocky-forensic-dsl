@@ -1,0 +1,50 @@
+# JOCKY — first responder triage
+# Case:  SIH-2026-014
+#
+# Run this first on a freshly acquired image or live response bundle.
+# It answers: who was active, what was running, and what did not belong.
+
+case "SIH-2026-014"
+
+source procs  = ingest "evidence/processes.json"
+source events = ingest "evidence/events.json"
+
+report "SIH-2026-014 — First Responder Triage"
+
+let hosts = procs
+    |> distinct (host)
+
+let accounts = procs
+    |> distinct (user)
+
+let unsigned = procs
+    |> where (signed == false)
+    |> select (name, path, user, parent_image)
+    |> sort by (name asc)
+
+# Discovery and anti-forensic utilities, matched by regular expression.
+
+let admin_tools = events
+    |> where (image matches "(?i)(whoami|net\.exe|nltest|quser|systeminfo|schtasks|wevtutil|rundll32|cmd\.exe)")
+    |> select (timestamp, image, parent_image, command_line)
+    |> sort by (timestamp asc)
+
+# Integrity levels tell you how far a process could reach.
+
+let integrity_mix = procs
+    |> group by (integrity)
+
+let per_user = procs
+    |> group by (user)
+
+timeline events on timestamp as "case timeline"
+
+finding "Unsigned binaries present in user-writable paths" severity high from unsigned
+finding "Discovery and anti-forensic utilities executed" severity high from admin_tools
+
+emit hosts         as "Hosts in scope"
+emit accounts      as "Accounts observed"
+emit unsigned      as "Unsigned processes"
+emit admin_tools   as "Discovery and tampering tooling"
+emit integrity_mix as "Processes by integrity level"
+emit per_user      as "Processes by account"

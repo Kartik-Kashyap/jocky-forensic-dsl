@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jocky-lang"
+version = "0.1.0"
+description = "JOCKY — a forensic scripting language and analysis console for computer and network investigation"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+keywords = ["dfir", "forensics", "incident-response", "dsl", "security"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Information Technology",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Security",
+]
+
+# No runtime dependencies. The language, runtime, CLI, console server and
+# tests all run on the standard library alone.
+dependencies = []
+
+[project.scripts]
+jocky = "jocky.cli:main"
+
+[tool.setuptools]
+packages = ["jocky"]
+
+[tool.setuptools.package-data]
+jocky = ["../console/index.html"]

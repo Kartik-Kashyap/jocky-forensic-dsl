@@ -1,0 +1,93 @@
+# JOCKY — beacon and C2 hunt
+# Case:  SIH-2026-014
+# Scope: FIN-WS-014, 2026-09-21
+#
+# Hypothesis: a macro-enabled document delivered to a finance workstation
+# spawned a scripting engine, staged an unsigned binary in the user's Temp
+# directory, established periodic beaconing, and cleared the event logs.
+
+case "SIH-2026-014"
+
+source events = ingest "evidence/events.json"
+source flows  = ingest "evidence/netflow.csv"
+source procs  = ingest "evidence/processes.json"
+
+report "SIH-2026-014 — Beacon and C2 Hunt"
+
+# --- process ancestry ------------------------------------------------------
+# Office products spawning interpreters is the classic macro -> shell hop.
+
+let office_children = procs
+    |> where (parent_image contains "WINWORD.EXE")
+    |> select (host, name, pid, parent_image, integrity, signed)
+    |> sort by (name asc)
+
+# Binaries running out of user-writable directories, by path pattern.
+
+let temp_execs = procs
+    |> where (path ~ "(?i)appdata.local.temp")
+    |> select (host, name, path, parent_image, user, signed)
+    |> sort by (name asc)
+
+# --- command-line analysis -------------------------------------------------
+# Encoded PowerShell: -enc / -nop flags plus high Shannon entropy, which
+# separates base64 blobs from ordinary command lines.
+
+let encoded_cmd = events
+    |> where (command_line contains "-enc" or command_line contains "-nop" or command_line contains "FromBase64String")
+    |> where (entropy(command_line) > 4.0)
+    |> select (timestamp, host, image, parent_image, command_line)
+    |> sort by (timestamp asc)
+
+# --- anti-forensics --------------------------------------------------------
+# wevtutil invoked by a non-system parent means the logs were cleared by
+# something other than normal servicing.
+
+let log_tamper = events
+    |> where (image contains "wevtutil")
+    |> where (parent_image contains "svchost_update")
+    |> select (timestamp, host, image, command_line)
+    |> sort by (timestamp asc)
+
+# --- network behaviour -----------------------------------------------------
+# Beaconing signature: many small outbound flows to one external endpoint.
+
+let beacon_dests = flows
+    |> where (direction == "outbound")
+    |> where (is_public_ip(dst_ip))
+    |> where (bytes < 2000)
+    |> group by (dst_ip, dst_port)
+
+let top_talkers = flows
+    |> where (is_public_ip(dst_ip))
+    |> group by (dst_ip)
+    |> sort by (count desc)
+    |> limit (10)
+
+# --- threat intel correlation ---------------------------------------------
+# Match observed indicators against the CTI feed. Each match becomes a
+# binding that findings can cite.
+
+match events.dst_ip against "evidence/intel_ips.txt" as intel_contacts
+match events.hash   against "evidence/intel_hashes.txt" as intel_files
+match flows.dst_ip  against "evidence/intel_ips.txt" as intel_flows
+
+# --- narrative -------------------------------------------------------------
+
+timeline events on timestamp as "FIN-WS-014 host activity"
+
+finding "Office document spawned a scripting engine" severity high from office_children
+finding "Unsigned binary executing from the user Temp directory" severity high from temp_execs
+finding "High-entropy encoded PowerShell command line" severity high from encoded_cmd
+finding "Security and System event logs cleared" severity critical from log_tamper
+finding "Host contacted a threat-intel IP address" severity critical from intel_contacts
+finding "Known-malicious file digest present on host" severity critical from intel_files
+
+emit office_children as "Office child processes"
+emit temp_execs      as "Executables in user Temp"
+emit encoded_cmd     as "Encoded command lines"
+emit beacon_dests    as "Low-volume external destinations"
+emit top_talkers     as "Top external destinations"
+emit intel_contacts  as "Threat-intel IP contacts"
+emit intel_files     as "Threat-intel digest matches"
+emit intel_flows     as "Threat-intel flow matches"

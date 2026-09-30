@@ -1,0 +1,17 @@
+# JOCKY threat-intel feed — known C2 and staging infrastructure
+# Format: one indicator per line. Lines beginning with '#' are ignored.
+# Source: internal CTI feed, snapshot 2026-09-20T00:00Z
+# Confidence: high unless marked otherwise
+
+185.234.72.19
+45.155.205.233
+193.42.33.18
+91.219.236.14      # medium confidence, shared hosting
+5.188.206.44
+176.113.115.9
+103.75.190.22
+141.98.10.87
+194.165.16.11      # medium confidence
+77.91.68.204
+23.106.223.180
+156.146.34.99
